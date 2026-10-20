@@ -1,0 +1,353 @@
+
+<!DOCTYPE html>
+<html lang="en" ng-app="hotelApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hotel Management System</title>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f1f5f9;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 25px auto;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px #ccc;
+        }
+
+        h1, h2 {
+            color: #4338ca;
+        }
+
+        h1 { text-align: center; }
+
+        input, select {
+            box-sizing: border-box;
+            width: 100%;
+            padding: 11px;
+            margin: 7px 0 12px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        button {
+            background: #4f46e5;
+            color: white;
+            padding: 10px 14px;
+            border: none;
+            border-radius: 5px;
+            margin: 4px;
+            cursor: pointer;
+        }
+
+        .logout { background: #dc2626; }
+        .checkout { background: #15803d; }
+
+        .card {
+            background: #eef2ff;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 7px;
+        }
+
+        .error { color: #dc2626; }
+        .success { color: #15803d; }
+
+        .available { color: green; }
+        .unavailable { color: red; }
+
+        .top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 15px;
+        }
+    </style>
+</head>
+
+<body ng-controller="HotelController">
+
+    <!-- LOGIN PAGE -->
+    <div class="container" ng-if="!isLoggedIn">
+        <h1>Hotel Management System</h1>
+        <h2>Admin Login</h2>
+
+        <form ng-submit="login()">
+            <label>Username</label>
+            <input ng-model="loginData.username" placeholder="Enter username" required>
+
+            <label>Password</label>
+            <input type="password"ng-model="loginData.password"placeholder="Enter password" required>
+
+            <button type="submit">Login</button>
+        </form>
+
+        <p class="error">{{ loginError }}</p>
+        <p>Demo username: admin | Demo password: 1234</p>
+    </div>
+
+    <!-- HOTEL DASHBOARD -->
+    <div class="container" ng-if="isLoggedIn">
+
+        <div class="top">
+            <h1>Hotel Dashboard</h1>
+            <button class="logout" ng-click="logout()">Logout</button>
+        </div>
+
+        <p>Welcome, {{ loginData.username }}!</p>
+        <p class="success">{{ message }}</p>
+        <p class="error">{{ errorMessage }}</p>
+
+        <!-- ADD ROOM -->
+        <h2>Add Room</h2>
+
+        <form ng-submit="addRoom()">
+            <label>Room Number</label>
+            <input ng-model="newRoom.roomNumber"placeholder="Example: 101" required>
+
+            <label>Room Type</label>
+            <select ng-model="newRoom.roomType" required>
+                <option value="">Select room type</option>
+                <option>Single</option>
+                <option>Double</option>
+                <option>Deluxe</option>
+                <option>Suite</option>
+            </select>
+
+            <label>Price per Night (₹)</label>
+            <input type="number" ng-model="newRoom.price"min="0" placeholder="Enter price" required>
+
+            <button type="submit">Add Room</button>
+        </form>
+
+        <!-- ROOM LIST -->
+        <h2>Room List</h2>
+
+        <input ng-model="roomSearch"placeholder="Search by room number or type">
+
+        <button ng-click="loadRooms()">Refresh Rooms</button>
+
+        <div class="grid">
+            <div class="card"ng-repeat="room in rooms | filter:roomSearch track by room._id">
+
+                <h3>Room {{ room.roomNumber }}</h3>
+                <p>Type: {{ room.roomType }}</p>
+                <p>Price: ₹{{ room.price }} per night</p>
+
+                <p ng-class="room.available ? 'available' : 'unavailable'">
+                    {{ room.available ? 'Available' : 'Booked' }}
+                </p>
+
+                <button ng-if="room.available"
+                        ng-click="selectRoom(room)">
+                    Book This Room
+                </button>
+
+                <button ng-click="deleteRoom(room._id)">
+                    Delete Room
+                </button>
+            </div>
+        </div>
+
+        <!-- BOOK ROOM -->
+        <h2>Guest Booking</h2>
+
+        <form ng-submit="createBooking()">
+            <label>Guest Name</label>
+            <input ng-model="newBooking.guestName"placeholder="Enter guest name" required>
+
+            <label>Phone Number</label>
+            <input type="tel" ng-model="newBooking.guestPhone"placeholder="Enter phone number" required>
+
+            <label>Available Room</label>
+            <select ng-model="newBooking.roomId" required>
+                <option value="">Select a room</option>
+                <option ng-repeat="room in rooms"
+                        ng-if="room.available"
+                        value="{{ room._id }}">
+                    Room {{ room.roomNumber }} -
+                    {{ room.roomType }} - ₹{{ room.price }}
+                </option>
+            </select>
+
+            <label>Check-in Date</label>
+            <input type="date" ng-model="newBooking.checkIn" required>
+
+            <label>Check-out Date</label>
+            <input type="date" ng-model="newBooking.checkOut" required>
+
+            <button type="submit">Confirm Booking</button>
+        </form>
+
+        <h2>Booking Records</h2>
+        <button ng-click="loadBookings()">Refresh Bookings</button>
+
+        <div class="card"ng-repeat="booking in bookings track by booking._id">
+
+            <h3>{{ booking.guestName }}</h3>
+            <p>Phone: {{ booking.guestPhone }}</p>
+            <p>
+                Room:
+                {{ booking.roomId ? booking.roomId.roomNumber : 'Room unavailable' }}
+            </p>
+            <p>Check-in: {{ booking.checkIn | date:'yyyy-MM-dd' }}</p>
+            <p>Check-out: {{ booking.checkOut | date:'yyyy-MM-dd' }}</p>
+            <p>Status: {{ booking.status }}</p>
+
+            <button class="checkout"
+                    ng-if="booking.status === 'Booked'"
+                    ng-click="checkOut(booking._id)">
+                Check Out Guest
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        var app = angular.module("hotelApp", []);
+
+        app.controller("HotelController", function($scope, $http) {
+            var ROOM_API = "http://localhost:5000/rooms";
+            var BOOKING_API = "http://localhost:5000/bookings";
+
+            $scope.isLoggedIn = false;
+            $scope.loginData = {};
+            $scope.rooms = [];
+            $scope.bookings = [];
+            $scope.newRoom = {};
+            $scope.newBooking = {};
+
+            function showError(err, fallback) {
+                $scope.errorMessage =
+                    err.data && err.data.error
+                        ? err.data.error
+                        : fallback;
+            }
+
+            $scope.login = function() {
+                if ($scope.loginData.username === "admin" &&
+                    $scope.loginData.password === "1234") {
+                    $scope.isLoggedIn = true;
+                    $scope.loginError = "";
+                    $scope.loadRooms();
+                    $scope.loadBookings();
+                } else {
+                    $scope.loginError = "Invalid username or password!";
+                }
+            };
+
+            $scope.logout = function() {
+                $scope.isLoggedIn = false;
+                $scope.loginData = {};
+                $scope.loginError = "";
+            };
+
+            $scope.loadRooms = function() {
+                $http.get(ROOM_API).then(function(response) {
+                    $scope.rooms = response.data;
+                }, function(err) {
+                    showError(err, "Could not load rooms. Check the server.");
+                });
+            };
+
+            $scope.addRoom = function() {
+                $scope.message = "";
+                $scope.errorMessage = "";
+
+                var room = {
+                    roomNumber: $scope.newRoom.roomNumber,
+                    roomType: $scope.newRoom.roomType,
+                    price: Number($scope.newRoom.price),
+                    available: true
+                };
+
+                $http.post(ROOM_API, room).then(function() {
+                    $scope.message = "Room added successfully!";
+                    $scope.newRoom = {};
+                    $scope.loadRooms();
+                }, function(err) {
+                    showError(err, "Could not add room.");
+                });
+            };
+
+            $scope.selectRoom = function(room) {
+                $scope.newBooking.roomId = room._id;
+                window.scrollTo(0, document.body.scrollHeight);
+            };
+
+            $scope.createBooking = function() {
+                $scope.message = "";
+                $scope.errorMessage = "";
+
+                var data = angular.copy($scope.newBooking);
+                data.checkIn = new Date(data.checkIn).toISOString();
+                data.checkOut = new Date(data.checkOut).toISOString();
+
+                $http.post(BOOKING_API, data).then(function() {
+                    $scope.message = "Booking created successfully!";
+                    $scope.newBooking = {};
+                    $scope.loadRooms();
+                    $scope.loadBookings();
+                }, function(err) {
+                    showError(err, "Could not create booking.");
+                });
+            };
+
+            $scope.loadBookings = function() {
+                $http.get(BOOKING_API).then(function(response) {
+                    $scope.bookings = response.data;
+                }, function(err) {
+                    showError(err, "Could not load bookings.");
+                });
+            };
+
+            $scope.deleteRoom = function(id) {
+                if (!confirm("Are you sure you want to delete this room?")) {
+                    return;
+                }
+
+                $http.delete(ROOM_API + "/" + encodeURIComponent(id))
+                    .then(function() {
+                        $scope.message = "Room deleted successfully!";
+                        $scope.loadRooms();
+                    }, function(err) {
+                        showError(err, "Could not delete room.");
+                    });
+            };
+
+            $scope.checkOut = function(id) {
+                if (!confirm("Confirm guest checkout?")) {
+                    return;
+                }
+
+                $http.patch(
+                    BOOKING_API + "/" + encodeURIComponent(id) + "/checkout"
+                ).then(function() {
+                    $scope.message = "Guest checked out successfully!";
+                    $scope.loadRooms();
+                    $scope.loadBookings();
+                }, function(err) {
+                    showError(err, "Could not check out guest.");
+                });
+            };
+        });
+    </script>
+
+</body>
+</html>
